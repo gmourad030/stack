@@ -152,15 +152,15 @@
     <script>
         // --- 1. 原始資料輸入與解析 (Data Parsing) ---
         // 匯入您提供的新資料格式 (包含全部 8 筆資料)
-        const rawDataInput = [
+       const rawDataInput = [
             { stock: "6187-萬潤", date: "2026/04/23", volume: "1張", avgBuyPrice: "$945.00", sellPrice: "$1,320.00", totalCost: "$946,099", totalRevenue: "$1,314,159", profit: "+$368,060", roi: "+38.90%" },
             { stock: "6231-系微", date: "2026/04/09", volume: "1張", avgBuyPrice: "$270.00", sellPrice: "$275.50", totalCost: "$140,385", totalRevenue: "$274,280", profit: "+$133,895", roi: "+95.38%" },
             { stock: "3037-欣興", date: "2026/04/23", volume: "1張", avgBuyPrice: "$644.00", sellPrice: "$730.00", totalCost: "$644,918", totalRevenue: "$726,770", profit: "+$81,852", roi: "+12.69%" },
             { stock: "6443-元晶", date: "2026/04/09", volume: "1張", avgBuyPrice: "$37.55", sellPrice: "$37.70", totalCost: "$37,604", totalRevenue: "$37,533", profit: "-$71", roi: "-0.19%" },
-            { stock: "2337-旺宏", date: "2026/06/04", volume: "3張", avgBuyPrice: "141,201", sellPrice: "158", totalCost: "423,603", totalRevenue: "471,903", profit: "48,300", roi: "11.40%" },
-            { stock: "2408-南亞科", date: "2026/06/04", volume: "3張", avgBuyPrice: "221,816", sellPrice: "397", totalCost: "665,447", totalRevenue: "1,185,730", profit: "520,283", roi: "78.19%" },
-            { stock: "2408-南亞科", date: "2026/06/04", volume: "2張", avgBuyPrice: "221,816", sellPrice: "398", totalCost: "443,632", totalRevenue: "791,482", profit: "347,850", roi: "78.41%" },
-            { stock: "2344-華邦電", date: "2026/06/04", volume: "5張", avgBuyPrice: "92,131", sellPrice: "182", totalCost: "460,655", totalRevenue: "905,975", profit: "445,320", roi: "96.67%" }
+            { stock: "2337-旺宏", date: "2026/06/04", volume: "3張", avgBuyPrice: "141.201", sellPrice: "158", totalCost: "423,603", totalRevenue: "471,903", profit: "48,300", roi: "11.40%" },
+            { stock: "2408-南亞科", date: "2026/06/04", volume: "3張", avgBuyPrice: "221.816", sellPrice: "397", totalCost: "665,447", totalRevenue: "1,185,730", profit: "520,283", roi: "78.19%" },
+            { stock: "2408-南亞科", date: "2026/06/04", volume: "2張", avgBuyPrice: "221.816", sellPrice: "398", totalCost: "443,632", totalRevenue: "791,482", profit: "347,850", roi: "78.41%" },
+            { stock: "2344-華邦電", date: "2026/06/04", volume: "5張", avgBuyPrice: "92.131", sellPrice: "182", totalCost: "460,655", totalRevenue: "905,975", profit: "445,320", roi: "96.67%" }
         ];
 
         // 清洗字串轉為純數字的輔助函數
