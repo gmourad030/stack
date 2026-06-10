@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股市大富翁 - 競賽績效儀表板 (進階版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft JhengHei';
+            background-color: #f8fafc;
+        }
+        /* 台股顏色定義：紅漲綠跌 */
+        .text-profit { color: #ef4444; } 
+        .text-loss { color: #22c55e; }   
+        .bg-profit { background-color: #fef2f2; }
+        .bg-loss { background-color: #f0fdf4; }
+        
+        /* 隱藏原生日期選擇器的預設圖示，使其更簡潔 */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            opacity: 0.6;
+            transition: 0.2s;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-6 text-gray-800">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- 頂部標題與篩選器 -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+            <h1 class="text-2xl font-bold text-gray-800 flex items-center">
+                <svg class="w-8 h-8 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                股市大富翁 - 競賽績效儀表板
+            </h1>
+            
+            <div class="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto">
+                <!-- 日期區間篩選 -->
+                <div class="flex items-center space-x-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 w-full md:w-auto">
+                    <span class="text-gray-500 font-medium text-sm">期間</span>
+                    <input type="date" id="dateStart" class="bg-transparent border-none text-sm font-medium text-gray-700 focus:ring-0 outline-none cursor-pointer">
+                    <span class="text-gray-400">至</span>
+                    <input type="date" id="dateEnd" class="bg-transparent border-none text-sm font-medium text-gray-700 focus:ring-0 outline-none cursor-pointer">
+                </div>
+
+                <!-- 股票標的篩選 -->
+                <div class="flex items-center space-x-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 w-full md:w-auto">
+                    <span class="text-gray-500 font-medium text-sm">標的</span>
+                    <select id="stockFilter" class="bg-transparent border-none text-sm font-medium text-gray-700 focus:ring-0 outline-none cursor-pointer w-full">
+                        <option value="ALL">全部標的</option>
+                        <!-- 選項由 JS 動態生成 -->
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第一區：高階 KPI 指標卡 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- 累計已實現損益 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition-shadow">
+                <div class="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+                <div class="text-sm font-semibold text-gray-500 mb-2">累計已實現損益</div>
+                <div class="text-4xl font-bold tracking-tight" id="kpi-total-profit">--</div>
+            </div>
+            
+            <!-- 整體投資報酬率 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition-shadow">
+                <div class="text-sm font-semibold text-gray-500 mb-2">整體投資報酬率</div>
+                <div class="text-4xl font-bold tracking-tight" id="kpi-roi">--</div>
+                <div class="text-xs text-gray-400 mt-2">總利潤 / 總成本</div>
+            </div>
+
+            <!-- 交易勝率 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition-shadow">
+                <div class="text-sm font-semibold text-gray-500 mb-2">交易勝率</div>
+                <div class="flex items-end space-x-2">
+                    <div class="text-4xl font-bold tracking-tight text-indigo-600" id="kpi-win-rate">--</div>
+                    <div class="text-sm text-gray-500 mb-1" id="kpi-win-count">--</div>
+                </div>
+            </div>
+
+            <!-- 最佳獲利個股 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition-shadow">
+                <div class="text-sm font-semibold text-gray-500 mb-2">最佳獲利個股</div>
+                <div class="text-xl font-bold text-gray-800" id="kpi-best-stock-name">--</div>
+                <div class="text-base font-bold mt-1" id="kpi-best-stock-profit">--</div>
+            </div>
+        </div>
+
+        <!-- 第二區：核心視覺化圖表 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- 左側：累積損益趨勢折線圖 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">累積損益趨勢圖</h3>
+                    <span class="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-medium">時間維度</span>
+                </div>
+                <div class="relative h-72 w-full">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 右側：各股損益貢獻長條圖 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">各股損益貢獻</h3>
+                    <span class="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-medium">標的維度</span>
+                </div>
+                <div class="relative h-72 w-full">
+                    <canvas id="contributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第三區：動態交易明細表 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 bg-white flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-800">交易明細</h3>
+                <span class="text-sm text-gray-500" id="table-record-count">共 0 筆紀錄</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-4">台股代碼(名稱)</th>
+                            <th class="px-6 py-4">賣出時間</th>
+                            <th class="px-6 py-4 text-right">張數</th>
+                            <th class="px-6 py-4 text-right">平均買入單價</th>
+                            <th class="px-6 py-4 text-right">賣出單價</th>
+                            <th class="px-6 py-4 text-right">投入總成本</th>
+                            <th class="px-6 py-4 text-right">賣出總金額</th>
+                            <th class="px-6 py-4 text-right">已實現損益</th>
+                            <th class="px-6 py-4 text-right">投資報酬率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-gray-100 text-gray-700">
+                        <!-- 資料由 JS 動態生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. 原始資料輸入與解析 (Data Parsing) ---
+        // 匯入您提供的新資料格式
+        const rawDataInput = [
+            { stock: "6187-萬潤", date: "2026/04/23", volume: "1張", avgBuyPrice: "$945.00", sellPrice: "$1,320.00", totalCost: "$946,099", totalRevenue: "$1,314,159", profit: "+$368,060", roi: "+38.90%" },
+            { stock: "6231-系微", date: "2026/04/09", volume: "1張", avgBuyPrice: "$270.00", sellPrice: "$275.50", totalCost: "$140,385", totalRevenue: "$274,280", profit: "+$133,895", roi: "+95.38%" },
+            { stock: "3037-欣興", date: "2026/04/23", volume: "1張", avgBuyPrice: "$644.00", sellPrice: "$730.00", totalCost: "$644,918", totalRevenue: "$726,770", profit: "+$81,852", roi: "+12.69%" },
+            { stock: "6443-元晶", date: "2026/04/09", volume: "1張", avgBuyPrice: "$37.55", sellPrice: "$37.70", totalCost: "$37,604", totalRevenue: "$37,533", profit: "-$71", roi: "-0.19%" }
+        ];
+
+        // 清洗字串轉為純數字的輔助函數
+        const cleanNumber = (str) => {
+            if (!str) return 0;
+            // 移除錢號、逗號、加號、百分比符號與"張"字
+            const cleaned = str.replace(/[\$,\+張%]/g, '').trim();
+            return Number(cleaned);
+        };
+
+        // 將字串資料轉換為運算用的數值陣列
+        const parsedData = rawDataInput.map(item => ({
+            stock: item.stock,
+            date: item.date.replace(/\//g, '-'), // 確保日期格式為 YYYY-MM-DD 方便 input[type="date"] 使用
+            volume: cleanNumber(item.volume),
+            avgBuyPrice: cleanNumber(item.avgBuyPrice),
+            sellPrice: cleanNumber(item.sellPrice),
+            totalCost: cleanNumber(item.totalCost),
+            totalRevenue: cleanNumber(item.totalRevenue),
+            profit: cleanNumber(item.profit),
+            roi: cleanNumber(item.roi)
+        }));
+
+        // 格式化數字顯示 (加入千分位)
+        const formatNumber = (num, decimals = 0) => {
+            return new Intl.NumberFormat('zh-TW', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(num);
+        };
+        
+        // 取得顏色 Class (台股：正紅負綠)
+        const getColorClass = (val) => val > 0 ? 'text-profit' : (val < 0 ? 'text-loss' : 'text-gray-500');
+        const getBgClass = (val) => val > 0 ? 'bg-profit' : (val < 0 ? 'bg-loss' : '');
+
+        let trendChartInstance = null;
+        let contributionChartInstance = null;
+
+        // --- 2. 初始化篩選器 ---
+        function initFilters() {
+            // 1. 股票下拉選單
+            const select = document.getElementById('stockFilter');
+            const uniqueStocks = [...new Set(parsedData.map(item => item.stock))].sort();
+            
+            uniqueStocks.forEach(stock => {
+                const option = document.createElement('option');
+                option.value = stock;
+                option.textContent = stock;
+                select.appendChild(option);
+            });
+
+            // 2. 日期區間設定 (自動抓取資料中的最小與最大日期)
+            const dates = parsedData.map(item => new Date(item.date));
+            const minDate = new Date(Math.min(...dates)).toISOString().split('T')[0];
+            const maxDate = new Date(Math.max(...dates)).toISOString().split('T')[0];
+
+            const dateStart = document.getElementById('dateStart');
+            const dateEnd = document.getElementById('dateEnd');
+            
+            dateStart.value = minDate;
+            dateEnd.value = maxDate;
+
+            // 綁定事件監聽
+            const updateDashboard = () => renderDashboard();
+            select.addEventListener('change', updateDashboard);
+            dateStart.addEventListener('change', updateDashboard);
+            dateEnd.addEventListener('change', updateDashboard);
+        }
+
+        // --- 3. 核心渲染邏輯 ---
+        function renderDashboard() {
+            const filterStock = document.getElementById('stockFilter').value;
+            const startStr = document.getElementById('dateStart').value;
+            const endStr = document.getElementById('dateEnd').value;
+            const startTime = new Date(startStr).getTime();
+            const endTime = new Date(endStr).getTime();
+
+            // 依據條件過濾資料
+            const filteredData = parsedData.filter(item => {
+                const itemTime = new Date(item.date).getTime();
+                const stockMatch = (filterStock === 'ALL') || (item.stock === filterStock);
+                const dateMatch = (itemTime >= startTime) && (itemTime <= endTime);
+                return stockMatch && dateMatch;
+            });
+
+            updateKPIs(filteredData);
+            updateTable(filteredData);
+            updateCharts(filteredData);
+        }
+
+        // --- 4. 更新 KPI 區塊 ---
+        function updateKPIs(data) {
+            if (data.length === 0) {
+                document.getElementById('kpi-total-profit').textContent = '$0';
+                document.getElementById('kpi-roi').textContent = '0%';
+                document.getElementById('kpi-win-rate').textContent = '0%';
+                document.getElementById('kpi-best-stock-name').textContent = '--';
+                document.getElementById('kpi-best-stock-profit').textContent = '--';
+                return;
+            }
+
+            let totalProfit = 0;
+            let totalCost = 0;
+            let winCount = 0;
+            const stockProfitMap = {};
+
+            data.forEach(item => {
+                totalProfit += item.profit;
+                totalCost += item.totalCost;
+                if (item.profit > 0) winCount++;
+                
+                if (!stockProfitMap[item.stock]) stockProfitMap[item.stock] = 0;
+                stockProfitMap[item.stock] += item.profit;
+            });
+
+            const overallRoi = totalCost > 0 ? ((totalProfit / totalCost) * 100) : 0;
+            const winRate = ((winCount / data.length) * 100);
+
+            // 尋找最佳標的
+            let bestStock = '';
+            let maxProfit = -Infinity;
+            for (const [stock, profit] of Object.entries(stockProfitMap)) {
+                if (profit > maxProfit) {
+                    maxProfit = profit;
+                    bestStock = stock;
+                }
+            }
+
+            // 更新 DOM
+            const profitEl = document.getElementById('kpi-total-profit');
+            const sign = totalProfit > 0 ? '+' : '';
+            profitEl.textContent = `${sign}$${formatNumber(totalProfit)}`;
+            profitEl.className = `text-4xl font-bold tracking-tight ${getColorClass(totalProfit)}`;
+
+            const roiEl = document.getElementById('kpi-roi');
+            roiEl.textContent = `${sign}${overallRoi.toFixed(2)}%`;
+            roiEl.className = `text-4xl font-bold tracking-tight ${getColorClass(totalProfit)}`;
+
+            document.getElementById('kpi-win-rate').textContent = `${winRate.toFixed(1)}%`;
+            document.getElementById('kpi-win-count').textContent = `(${winCount} 筆獲利 / 共 ${data.length} 筆)`;
+            
+            document.getElementById('kpi-best-stock-name').textContent = bestStock || '--';
+            const bestProfitEl = document.getElementById('kpi-best-stock-profit');
+            
+            if (maxProfit > -Infinity) {
+                bestProfitEl.textContent = `貢獻: +$${formatNumber(maxProfit)}`;
+                bestProfitEl.className = `text-base font-bold mt-1 ${getColorClass(maxProfit)}`;
+            } else {
+                bestProfitEl.textContent = '--';
+            }
+        }
+
+        // --- 5. 更新明細表 ---
+        function updateTable(data) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            document.getElementById('table-record-count').textContent = `共 ${data.length} 筆紀錄`;
+
+            // 將資料依日期遞減排序 (最新的放最上面)
+            const sortedForTable = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            sortedForTable.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-indigo-50/50 transition-colors border-b border-gray-50 last:border-0";
+                
+                // 設定條件式格式化的樣式
+                const profitClass = getColorClass(item.profit) + " font-bold";
+                const bgHighlight = getBgClass(item.profit);
+                const prefix = item.profit > 0 ? '+' : '';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-bold text-gray-800">${item.stock}</td>
+                    <td class="px-6 py-4 text-gray-500">${item.date}</td>
+                    <td class="px-6 py-4 text-right">${item.volume} 張</td>
+                    <td class="px-6 py-4 text-right">$${formatNumber(item.avgBuyPrice, 2)}</td>
+                    <td class="px-6 py-4 text-right font-medium">$${formatNumber(item.sellPrice, 2)}</td>
+                    <td class="px-6 py-4 text-right">$${formatNumber(item.totalCost)}</td>
+                    <td class="px-6 py-4 text-right">$${formatNumber(item.totalRevenue)}</td>
+                    <td class="px-6 py-4 text-right ${profitClass} ${bgHighlight}">${prefix}$${formatNumber(item.profit)}</td>
+                    <td class="px-6 py-4 text-right ${profitClass} ${bgHighlight}">${prefix}${item.roi.toFixed(2)}%</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- 6. 更新圖表 ---
+        function updateCharts(data) {
+            if (data.length === 0) return;
+
+            // --- 準備趨勢圖資料 (依時間維度累積) ---
+            // 1. 確保資料按日期遞增排序，時間軸才能正確往前推進
+            const sortedData = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            // 2. 將同一天的損益加總
+            const dailyProfitMap = {};
+            sortedData.forEach(item => {
+                if (!dailyProfitMap[item.date]) dailyProfitMap[item.date] = 0;
+                dailyProfitMap[item.date] += item.profit;
+            });
+
+            const sortedDates = Object.keys(dailyProfitMap);
+            let cumulative = 0;
+            const trendData = [];
+
+            sortedDates.forEach(date => {
+                cumulative += dailyProfitMap[date];
+                trendData.push(cumulative);
+            });
+
+            // 繪製趨勢圖
+            if (trendChartInstance) trendChartInstance.destroy();
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            
+            // 判斷最後是賺是賠來決定折線顏色
+            const finalProfit = cumulative;
+            const lineColor = finalProfit >= 0 ? '#ef4444' : '#22c55e'; // 台股：紅賺綠賠
+            const bgColor = finalProfit >= 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)';
+
+            trendChartInstance = new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: sortedDates,
+                    datasets: [{
+                        label: '累積已實現損益',
+                        data: trendData,
+                        borderColor: lineColor,
+                        backgroundColor: bgColor,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: lineColor,
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        fill: true,
+                        tension: 0.3 // 讓線條稍微平滑
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            padding: 12,
+                            titleFont: { size: 14 },
+                            callbacks: {
+                                label: function(context) {
+                                    let val = context.parsed.y;
+                                    let prefix = val > 0 ? '+' : '';
+                                    return ` 累積: ${prefix}$${formatNumber(val)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: { 
+                        x: { 
+                            grid: { display: false }
+                        },
+                        y: { 
+                            beginAtZero: true,
+                            grid: { borderDash: [4, 4] },
+                            ticks: {
+                                callback: function(value) {
+                                    if(value >= 10000 || value <= -10000) {
+                                        return (value / 10000) + '萬'; // 台灣習慣用萬為單位
+                                    }
+                                    return value;
+                                }
+                            }
+                        } 
+                    }
+                }
+            });
+
+            // --- 準備貢獻度圖表資料 (依股票加總) ---
+            const stockMap = {};
+            data.forEach(item => {
+                if (!stockMap[item.stock]) stockMap[item.stock] = 0;
+                stockMap[item.stock] += item.profit;
+            });
+            
+            // 轉為陣列並依獲利高低排序，讓圖表更美觀
+            const sortedStocks = Object.keys(stockMap).sort((a, b) => stockMap[b] - stockMap[a]);
+            const barData = sortedStocks.map(stock => stockMap[stock]);
+            
+            // 台灣股市：紅漲綠跌
+            const barColors = barData.map(val => val > 0 ? 'rgba(239, 68, 68, 0.8)' : 'rgba(34, 197, 94, 0.8)');
+            const barBorders = barData.map(val => val > 0 ? 'rgb(220, 38, 38)' : 'rgb(22, 163, 74)');
+
+            // 繪製貢獻圖 (Bar Chart)
+            if (contributionChartInstance) contributionChartInstance.destroy();
+            const ctxBar = document.getElementById('contributionChart').getContext('2d');
+            contributionChartInstance = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: sortedStocks,
+                    datasets: [{
+                        label: '損益貢獻',
+                        data: barData,
+                        backgroundColor: barColors,
+                        borderColor: barBorders,
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y', // 設定為水平長條圖 (Tornado Style)
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let val = context.parsed.x; // 因為是水平的，值在 X 軸
+                                    let prefix = val > 0 ? '+' : '';
+                                    return ` 貢獻: ${prefix}$${formatNumber(val)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: { 
+                        x: { 
+                            grid: { borderDash: [4, 4] },
+                            ticks: {
+                                callback: function(value) {
+                                    if(value >= 10000 || value <= -10000) {
+                                        return (value / 10000) + '萬';
+                                    }
+                                    return value;
+                                }
+                            }
+                        },
+                        y: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- 7. 初始化執行 ---
+        window.onload = () => {
+            initFilters();
+            renderDashboard(); 
+        };
+    </script>
+</body>
+</html>
